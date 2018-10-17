@@ -1,0 +1,18 @@
+p.upstim {
+    text-align:center;
+    color: black;
+    position: absolute;
+    top: 30%;
+}
+
+p.downstim {
+    text-align:center;
+    color: black;
+    position: absolute;
+    top: 700%;
+}
+
+p.feedback{
+    text-align: center;
+    color: green;
+}

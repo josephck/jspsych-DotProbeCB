@@ -1,52 +1,28 @@
 //Data
-const correct_anskey = {'real':'r', 'nonreal':'n'}
+const correct_anskey = {'left':37, 'right':39}
+const feedback_msg = {'Correct':'Correct, well done!','Wrong': 'Oops! That was wrong, try again!'}
+
 
 const block_para_lists = [{
     instruction: "<p>blah blah blah</p>",
     stim_csv: "wordlist_p1.csv",
     debrief: "<p>blah blah blah</p>",
-    feedback:true
+    feedback:true,
+    preprocess:assignTrialCond
   },
   {
     instruction: "<p>blah blah blah</p>",
     stim_csv: "wordlist_p2.csv",
     debrief: "<p>blah blah blah</p>",
-    feedback:true
+    feedback:true,
+    preprocess:assignTrialCond
   },
   {
     instruction: "<p>blah blah blah</p>",
     stim_csv: "wordlist_exp.csv",
     debrief: "<p>blah blah blah</p>",
     feedback:false,
-    split: function(stim_list){
-      var n = 4;
-      var valence_type = [...new Set(stim_list.map(stim => stim.valence))];  //got all valence types
-      var block_size = stim_list.length / n; 
-      if (!Number.isInteger(block_size)) {
-        alert('The no. of stimuli is not divisible by the block no. required. Some stimuli will not be used.');
-        block_size = Math.floor(block_size);
-      }
-      var n_stim_per_valence = {};
-      var sorted_list = {};
-      var block_list = [];
-       
-        valence_type.forEach(function(w) { 
-          sorted_list[w] = jsPsych.randomization.shuffle(stim_list.filter(stim=>stim.valence==w));
-          n_stim_per_valence[w] = sorted_list[w].length;
-        });
-
-      
-
-      for (i = 0;i<n;i++) {
-          let block = [];
-        valence_type.forEach(w=>block.push(...assignTrialAns(sorted_list[w].slice(i*n_stim_per_valence[w]/n,
-              i*n_stim_per_valence[w]/n + n_stim_per_valence[w]/n ))));
-        block_list.push(jsPsych.randomization.shuffle(block))
-      }
-      
-      return block_list;
-
-    }
+    preprocess:assignTrialCond
   }
 ];
 
@@ -55,7 +31,7 @@ const fixation = {
   stimulus: '<p class="stimulus">+</p>',
   choices: jsPsych.NO_KEYS,
   trial_duration: 1000,
-  post_trial_gap: 500
+  post_trial_gap: 0
 }
 
 const instruction_text = '<p>Blah Blah Blah</p>'+
@@ -65,21 +41,27 @@ const instruction_text = '<p>Blah Blah Blah</p>'+
 const debrief_text ="<p>blah blah blah DONE</p>";
 
 //Functions
-function assignTrialAns(stim_list) {
-  //Pre: list of stim in format {prime: 'woman', valence:'neutral', real, nonreal}
-  //post: list of stim in format {prime, valence, target,type:real|nonreal}
-  //First half will be set as real trial and the second half will be set to nonreal
-  for (i=0;i<stim_list.length/2;i++) {
-    stim_list[i]['type'] = 'real'
-    stim_list[i]['target'] = stim_list[i]['real']
+function assignTrialCondandShuffle(stim_list) {
+  //Pre: list of stim in format {'threat': 'word1','neutral':'word2'}
+  //post: list of stim in format {'threat','neutral','threatup','probeup','probedir'}
+  // counterbalance threatup, probeup, probedir
+  // 2^3 combinations in total all should have equal no. of trials
+  var factor = {
+    'threatup':[true,false],
+    'probeup':[true,false],
+    'probedir':['left','right']
+  }
+  
+  full_design = jsPsych.randomization.factorial(factors,stim_list.length/8)
+
+  for (i=0;i<stim_list.length/8;i++) {
+    stim_list[i]['threatup'] = full_design[i]['threatup']
+    stim_list[i]['probeup' ] = full_design[i]['probeup' ]
+    stim_list[i]['probedir'] = full_design[i]['probedir']
   }
 
-  for (i=stim_list.length/2;i<stim_list.length;i++) {
-    stim_list[i]['type'] = 'nonreal'
-    stim_list[i]['target'] = stim_list[i]['nonreal']
-  }
 
-  return stim_list;
+  return jsPsych.randomization.repeat(stim_list,1);
 }
 
 
@@ -122,10 +104,10 @@ function buildBlock(block_para, results) {
       }
   }
     var block;
-    if (typeof block_para.split === "undefined") {
+    if (typeof block_para.preprocess === "undefined") {
       return buildSimpleBlock(block_para,results);
     } else {
-      block_list = block_para.split(results);
+      block_list = block_para.preprocess(results);
       var timeline = [];
       block_list.forEach(function(w){
         timeline.push(buildSimpleBlock(block_para,w))
@@ -140,50 +122,48 @@ function trials(stimuli, feedback  = false) {
       timeline_variables: stimuli,
       randomize_order: true,
       timeline: [
-      fixation,
-      {
+        fixation,
+        {
           type: 'html-keyboard-response',
-          stimulus: function(){ return "<p class='stimulus'><font color = 'yellow'>" + 
-            jsPsych.timelineVariable('prime',true)+
-            "</font></p>" ; },
+          stimulus: function(){ threatup = jsPsych.timelineVariable('threatup',true); 
+          return `<p class=${threatup?'upstim':'downstim'}'>${jsPsych.timelineVariable('threat',true)}</p>` + 
+          `<p class=${threatup?'downstim':'upstim'}'>${jsPsych.timelineVariable('neutral',true)}</p>` 
+          ; },
           choices: jsPsych.NO_KEYS,
-          trial_duration: 750,
-      },
-      {
-          type: 'html-keyboard-response',
-          stimulus: function(){ return "<p class='stimulus'>"+jsPsych.timelineVariable('target',true)+"</p>";},           
-          choices: [' '],
-          trial_duration: 10000
-      },
-      {
-          type: 'html-keyboard-response',
-          stimulus: function(){ return "<p class='stimulus'>What is the missing letter?</p>"; },
-          trial_duration: 6000,
-          data: function(){
-          return {
-              word_prime: jsPsych.timelineVariable('prime',true),
-              word_stem: jsPsych.timelineVariable('target',true),
-              valence: jsPsych.timelineVariable('valence',true),
-              type: jsPsych.timelineVariable('type',true),
-              correctans : correct_anskey[jsPsych.timelineVariable('type',true)]
-          }
+          trial_duration: 500,
         },
-        on_finish: function(data){
-            if (data.key_press == jsPsych.pluginAPI.convertKeyCharacterToKeyCode(correct_anskey[jsPsych.timelineVariable('type',true)])) {
-                data.correct = true; 
-            } else {
-                data.correct = false;
+        {
+          type: 'html-keyboard-response',
+          stimulus: function(){return `<p class=${jsPsych.timelineVariable('probeup',true)?'upstim':'downstim'}'>
+          ${(jsPsych.timelineVariable('probedir',true)=='left')?'<':'>'}</p>`;},           
+          choices: [37,39],
+          trial_duration: 10000,
+          data: function(){
+            return {
+                pair_id: jsPsych.timelineVariable('pairId',true),
+                word_threat: jsPsych.timelineVariable('threat',true),
+                word_neutral: jsPsych.timelineVariable('neutral',true),
+                threatup: jsPsych.timelineVariable('threatup',true),
+                probeup: jsPsych.timelineVariable('probeup',true),
+                probedir: jsPsych.timelineVariable('probedir',true) 
             }
+          },
+          on_finish: function(data){
+              if (data.key_press == correct_anskey[jsPsych.timelineVariable('probedir')]) {
+                  data.correct = true; 
+              } else {
+                  data.correct = false;
+              }
+          }
         }
-      }
       ]
     }
     if (feedback) {
       result.timeline.push({
         
         type: 'html-keyboard-response',
-          stimulus: function(){ return `<p class='stimulus'>${(jsPsych.data.getLastTrialData().values()[0].correct?'Correct':'Wrong')}</p>`; },
-          trial_duration: 1000
+          stimulus: function(){ return `<p class='feedback'>${(jsPsych.data.getLastTrialData().values()[0].correct?feedback_msg['Correct']:feedback_msg['Wrong'])}</p>`; },
+          trial_duration: 2000
       })
     }
     return result;
