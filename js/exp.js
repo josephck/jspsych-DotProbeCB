@@ -8,21 +8,21 @@ const block_para_lists = [{
     stim_csv: "wordlist_p1.csv",
     debrief: "<p>blah blah blah</p>",
     feedback:true,
-    preprocess:assignTrialCond
+    preprocess:assignTrialCondandShuffle
   },
   {
     instruction: "<p>blah blah blah</p>",
     stim_csv: "wordlist_p2.csv",
     debrief: "<p>blah blah blah</p>",
     feedback:true,
-    preprocess:assignTrialCond
+    preprocess:assignTrialCondandShuffle
   },
   {
     instruction: "<p>blah blah blah</p>",
     stim_csv: "wordlist_exp.csv",
     debrief: "<p>blah blah blah</p>",
     feedback:false,
-    preprocess:assignTrialCond
+    preprocess:assignTrialCondandShuffle
   }
 ];
 
@@ -46,7 +46,7 @@ function assignTrialCondandShuffle(stim_list) {
   //post: list of stim in format {'threat','neutral','threatup','probeup','probedir'}
   // counterbalance threatup, probeup, probedir
   // 2^3 combinations in total all should have equal no. of trials
-  var factor = {
+  var factors = {
     'threatup':[true,false],
     'probeup':[true,false],
     'probedir':['left','right']
@@ -54,7 +54,7 @@ function assignTrialCondandShuffle(stim_list) {
   
   full_design = jsPsych.randomization.factorial(factors,stim_list.length/8)
 
-  for (i=0;i<stim_list.length/8;i++) {
+  for (i=0;i<stim_list.length;i++) {
     stim_list[i]['threatup'] = full_design[i]['threatup']
     stim_list[i]['probeup' ] = full_design[i]['probeup' ]
     stim_list[i]['probedir'] = full_design[i]['probedir']
@@ -107,11 +107,9 @@ function buildBlock(block_para, results) {
     if (typeof block_para.preprocess === "undefined") {
       return buildSimpleBlock(block_para,results);
     } else {
-      block_list = block_para.preprocess(results);
+      stimdata = block_para.preprocess(results);
       var timeline = [];
-      block_list.forEach(function(w){
-        timeline.push(buildSimpleBlock(block_para,w))
-      })
+      timeline.push(buildSimpleBlock(block_para,stimdata));
   return {'timeline':timeline} ;
     }
     
@@ -125,17 +123,17 @@ function trials(stimuli, feedback  = false) {
         fixation,
         {
           type: 'html-keyboard-response',
-          stimulus: function(){ threatup = jsPsych.timelineVariable('threatup',true); 
-          return `<p class=${threatup?'upstim':'downstim'}'>${jsPsych.timelineVariable('threat',true)}</p>` + 
-          `<p class=${threatup?'downstim':'upstim'}'>${jsPsych.timelineVariable('neutral',true)}</p>` 
+          stimulus: function(){var threatup = jsPsych.timelineVariable('threatup',true); 
+          return `<div class='${threatup?'upstim':'downstim'}'><p>${jsPsych.timelineVariable('threat',true)}</p></div>` + 
+          `<div class='${threatup?'downstim':'upstim'}'><p>${jsPsych.timelineVariable('neutral',true)}</p></div>` 
           ; },
           choices: jsPsych.NO_KEYS,
           trial_duration: 500,
         },
         {
           type: 'html-keyboard-response',
-          stimulus: function(){return `<p class=${jsPsych.timelineVariable('probeup',true)?'upstim':'downstim'}'>
-          ${(jsPsych.timelineVariable('probedir',true)=='left')?'<':'>'}</p>`;},           
+          stimulus: function(){return `<div class='${jsPsych.timelineVariable('probeup',true)?'upstim':'downstim'}'><p>
+          ${(jsPsych.timelineVariable('probedir',true)=='left')?'<':'>'}</p></div>`;},           
           choices: [37,39],
           trial_duration: 10000,
           data: function(){
@@ -149,7 +147,7 @@ function trials(stimuli, feedback  = false) {
             }
           },
           on_finish: function(data){
-              if (data.key_press == correct_anskey[jsPsych.timelineVariable('probedir')]) {
+              if (data.key_press == correct_anskey[jsPsych.timelineVariable('probedir',true)]) {
                   data.correct = true; 
               } else {
                   data.correct = false;

@@ -1,15 +1,20 @@
-p.upstim {
+div.upstim {
     text-align:center;
     color: black;
     position: absolute;
-    top: 30%;
+    top: 40%;
+    left: 0%;
+    width: 100%;
+
 }
 
-p.downstim {
+div.downstim {
     text-align:center;
     color: black;
     position: absolute;
-    top: 700%;
+    top: 60%;
+    left:0%;
+    width: 100%;
 }
 
 p.feedback{
